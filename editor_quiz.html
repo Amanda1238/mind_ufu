@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Editor de Quiz - Mind UFU</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="assets/css/style-global.css">
+</head>
+<body class="bg-light">
+
+<div class="container py-4 mw-800">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <button onclick="window.history.back()" class="btn btn-link text-decoration-none text-muted p-0 mb-1">
+                <i class="bi bi-arrow-left"></i> Voltar
+            </button>
+            <h2 class="fw-bold m-0">✏️ Editor de Quiz</h2>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-danger" onclick="deletarQuizInteiro()">
+                <i class="bi bi-trash"></i> Excluir
+            </button>
+            <button class="btn btn-success fw-bold shadow-sm" onclick="publicarQuiz()">
+                <i class="bi bi-send-check"></i> Publicar Quiz
+            </button>
+        </div>
+    </div>
+    
+    <div class="card mb-4 border-0 shadow-sm border-start border-4 border-primary">
+        <div class="card-body">
+            <h5 class="card-title text-primary fw-bold mb-3">Informações Básicas</h5>
+            <div class="row g-2">
+                <div class="col-md-5">
+                    <label class="form-label small text-muted">Título</label>
+                    <input type="text" id="editTitulo" class="form-control fw-bold">
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label small text-muted">Descrição</label>
+                    <input type="text" id="editDesc" class="form-control">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-primary w-100" onclick="salvarDetalhes()">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-5">
+        <div class="card-body p-4">
+            <h5 class="card-title fw-bold text-dark mb-3">➕ Adicionar Pergunta</h5>
+            
+            <div class="mb-3">
+                <textarea id="textoPergunta" class="form-control bg-light" rows="2" placeholder="Digite o enunciado da questão aqui..."></textarea>
+            </div>
+
+            <label class="form-label fw-bold small text-muted mb-2">Alternativas (Selecione a correta)</label>
+            
+            <div class="vstack gap-2">
+                <div class="input-group">
+                    <div class="input-group-text bg-white border-end-0">
+                        <input class="form-check-input mt-0" type="radio" name="correta" value="0" checked>
+                    </div>
+                    <input type="text" class="form-control opcao-input border-start-0" placeholder="Alternativa A">
+                </div>
+
+                <div class="input-group">
+                    <div class="input-group-text bg-white border-end-0">
+                        <input class="form-check-input mt-0" type="radio" name="correta" value="1">
+                    </div>
+                    <input type="text" class="form-control opcao-input border-start-0" placeholder="Alternativa B">
+                </div>
+
+                <div class="input-group">
+                    <div class="input-group-text bg-white border-end-0">
+                        <input class="form-check-input mt-0" type="radio" name="correta" value="2">
+                    </div>
+                    <input type="text" class="form-control opcao-input border-start-0" placeholder="Alternativa C">
+                </div>
+
+                <div class="input-group">
+                    <div class="input-group-text bg-white border-end-0">
+                        <input class="form-check-input mt-0" type="radio" name="correta" value="3">
+                    </div>
+                    <input type="text" class="form-control opcao-input border-start-0" placeholder="Alternativa D">
+                </div>
+            </div>
+
+            <button class="btn btn-dark w-100 mt-3 fw-bold" onclick="salvarPergunta()">
+                Adicionar ao Quiz
+            </button>
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold m-0">Perguntas Criadas</h5>
+        <span class="badge bg-secondary" id="contador-perguntas">0</span>
+    </div>
+    
+    <div id="lista-perguntas">
+        </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    const idQuiz = new URLSearchParams(window.location.search).get('id');
+
+    $(document).ready(() => {
+        if(!idQuiz) { alert("Erro: ID faltando"); window.history.back(); }
+        carregarDadosIniciais();
+    });
+
+    function carregarDadosIniciais() {
+        $.get('php/api_comunidades.php', { acao: 'get_quiz_full', quiz_id: idQuiz }, function(res){
+            let data = typeof res === 'string' ? JSON.parse(res) : res;
+
+            // Preenche info básica
+            $('#editTitulo').val(data.quiz.titulo);
+            $('#editDesc').val(data.quiz.descricao);
+            
+            let html = '';
+            if(data.perguntas.length > 0) {
+                data.perguntas.forEach((p, idx) => {
+                    html += `
+                    <div class="card mb-2 border-0 shadow-sm animate-up">
+                        <div class="card-body d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="fw-bold mb-1"><span class="text-primary">#${idx+1}</span> ${p.enunciado}</h6>
+                                <small class="text-muted">${p.alternativas.length} alternativas cadastradas</small>
+                            </div>
+                            <button onclick="excluirPergunta(${p.id})" class="btn btn-sm btn-outline-danger border-0" title="Remover">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </div>
+                    </div>`;
+                });
+            } else {
+                html = '<div class="text-center text-muted py-4 border rounded border-dashed bg-white">Nenhuma pergunta adicionada ainda.</div>';
+            }
+            
+            $('#lista-perguntas').html(html);
+            $('#contador-perguntas').text(data.perguntas.length);
+        });
+    }
+
+    function salvarDetalhes() {
+        $.post('php/api_comunidades.php', { 
+            acao: 'editar_quiz_info', 
+            quiz_id: idQuiz, 
+            titulo: $('#editTitulo').val(), 
+            descricao: $('#editDesc').val() 
+        }, () => alert("Informações atualizadas com sucesso!"));
+    }
+
+    function salvarPergunta() {
+        const enunciado = $('#textoPergunta').val();
+        const opcoes = [];
+        $('.opcao-input').each(function() { opcoes.push($(this).val()); });
+        const corretaIndex = $('input[name="correta"]:checked').val();
+
+        if(!enunciado || opcoes.some(o => o.trim() === "")) {
+            return alert("Preencha o enunciado e todas as opções!");
+        }
+
+        $.post('php/api_comunidades.php', {
+            acao: 'salvar_pergunta',
+            quiz_id: idQuiz,
+            enunciado: enunciado,
+            opcoes: opcoes,
+            correta: corretaIndex
+        }, function(res) {
+            let data = typeof res === 'string' ? JSON.parse(res) : res;
+            if(data.status === 'sucesso') {
+                $('#textoPergunta').val('');
+                $('.opcao-input').val('');
+                $('input[name="correta"][value="0"]').prop('checked', true);
+                // Atualiza lista
+                carregarDadosIniciais();
+                $('html, body').animate({ scrollTop: $(document).height() }, 'slow');
+            } else {
+                alert("Erro: " + data.msg);
+            }
+        });
+    }
+
+    function excluirPergunta(pid) {
+        if(confirm("Apagar esta pergunta?")) {
+            $.post('php/api_comunidades.php', { acao: 'excluir_pergunta', pergunta_id: pid }, () => carregarDadosIniciais());
+        }
+    }
+
+    function deletarQuizInteiro() {
+        if(confirm("⚠️ PERIGO: Isso apagará o quiz e TODAS as perguntas permanentemente. Continuar?")) {
+            $.post('php/api_comunidades.php', { acao: 'excluir_quiz', quiz_id: idQuiz }, function(){
+                window.location.href = document.referrer; // Volta pra tela anterior
+            });
+        }
+    }
+
+    function publicarQuiz() {
+        if(confirm("Tem certeza? Ao publicar, o quiz ficará visível para todos os alunos da comunidade.")) {
+            $.post('php/api_comunidades.php', { acao: 'publicar_quiz', quiz_id: idQuiz }, function(){
+                alert("✅ Quiz Publicado com Sucesso!");
+                window.location.href = document.referrer;
+            });
+        }
+    }
+</script>
+
+<style>
+    .border-dashed { border-style: dashed !important; }
+    .animate-up { animation: fadeInUp 0.4s ease; }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+</style>
+</body>
+</html>

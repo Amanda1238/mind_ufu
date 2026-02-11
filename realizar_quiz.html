@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Realizar Quiz - Mind UFU</title>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; display: flex; justify-content: center; min-height: 100vh; padding: 20px; }
+        
+        .quiz-container { background: white; width: 100%; max-width: 800px; padding: 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+        
+        .header { border-bottom: 2px solid #f0f0f0; padding-bottom: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .header h1 { font-size: 22px; margin: 0; color: #1f2937; }
+        
+        .nav-questoes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 25px; padding: 10px; background: #f8f9fa; border-radius: 8px; }
+        .nav-btn { width: 35px; height: 35px; border-radius: 50%; border: 1px solid #dee2e6; background: white; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #6c757d; transition: all 0.2s; }
+        .nav-btn:hover { background: #e9ecef; }
+        .nav-btn.active { border-color: #2563eb; color: #2563eb;  }
+        .nav-btn.respondida { background-color: #dbeafe; border-color: #2563eb; color: #1e40af; }
+
+        .pergunta-texto { font-size: 18px; font-weight: 600; margin-bottom: 20px; color: #111; line-height: 1.5; }
+        
+        .alternativa { display: flex; align-items: center; padding: 15px; border: 1px solid #e5e7eb; margin-bottom: 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; }
+        .alternativa:hover { background: #f9fafb; border-color: #d1d5db; }
+        .alternativa.selecionada { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 0 0 1px #3b82f6; }
+        .alternativa input { margin-right: 15px; transform: scale(1.2); cursor: pointer; }
+
+        .controles { margin-top: 30px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #f0f0f0; padding-top: 20px; }
+        
+        .resultado-card { border: 1px solid #eee; padding: 15px; border-radius: 8px; margin-bottom: 15px; background: #fff; }
+        .resultado-card.acertou { border-left: 5px solid #10b981; }
+        .resultado-card.errou { border-left: 5px solid #ef4444; }
+        .badge-res { font-size: 0.8em; padding: 4px 8px; border-radius: 4px; font-weight: bold; }
+        .badge-certo { background: #d1fae5; color: #065f46; }
+        .badge-errado { background: #fee2e2; color: #991b1b; }
+        
+        #loading { text-align: center; margin-top: 50px; }
+    </style>
+</head>
+<body>
+
+    <div class="quiz-container">
+        
+        <div id="loading">
+            <div class="spinner-border text-primary" role="status"></div>
+            <p class="mt-2 text-muted">Carregando prova...</p>
+        </div>
+
+        <div id="area-prova" style="display: none;">
+            <div class="header">
+                <div>
+                    <h1 id="quiz-titulo">...</h1>
+                    <small class="text-muted" id="quiz-desc">...</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="gerarPDF()" title="Baixar PDF">
+                        <i class="bi bi-download"></i> PDF
+                    </button>
+                    <button class="btn btn-outline-primary btn-sm" onclick="salvarQuizLista()" title="Salvar para depois">
+                        <i class="bi bi-bookmark-plus"></i> Salvar
+                    </button>
+                    <button class="btn btn-success btn-sm" onclick="finalizarProva()">
+                        <i class="bi bi-check-circle-fill"></i> Finalizar
+                    </button>
+                </div>
+            </div>
+
+            <div class="nav-questoes" id="nav-questoes"></div>
+
+            <div class="pergunta-area">
+                <div class="pergunta-texto" id="enunciado"></div>
+                <div id="lista-alternativas"></div>
+            </div>
+
+            <div class="controles">
+                <button class="btn btn-secondary" onclick="navegar(-1)" id="btn-ant">
+                    <i class="bi bi-arrow-left"></i> Anterior
+                </button>
+                
+                <span class="text-muted small" id="indicador-passo">Questão 1 de X</span>
+
+                <button class="btn btn-primary" onclick="navegar(1)" id="btn-prox">
+                    Próxima <i class="bi bi-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <div id="area-resultado" style="display: none;">
+            <div class="text-center mb-4">
+                <h2 class="fw-bold">Resultado Final</h2>
+                <div style="font-size: 40px; font-weight: bold; color: #2563eb;" id="nota-final">0%</div>
+                <p id="resumo-texto">Você acertou X de Y questões.</p>
+                
+                <div class="d-flex justify-content-center gap-2 mt-3">
+                    <button class="btn btn-secondary" onclick="sair()">Voltar</button>
+                    <button class="btn btn-primary" onclick="gerarPDF()">
+                        <i class="bi bi-file-earmark-pdf-fill"></i> Baixar PDF + Gabarito
+                    </button>
+                </div>
+            </div>
+
+            <hr>
+            <h4 class="mb-3">Revisão Detalhada:</h4>
+            <div id="lista-correcao">
+                </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost/mind_ufu/php/api_comunidades.php'; 
+        
+        let quizData = {};     
+        let perguntas = [];    
+        let respostasUsuario = []; 
+        let questaoAtual = 0;
+        let quizId = null;
+
+        $(document).ready(() => {
+            quizId = new URLSearchParams(window.location.search).get('id');
+            if(quizId) carregarQuiz(quizId);
+            else { alert("Quiz não encontrado."); window.location.href = 'comunidades.html'; }
+        });
+
+        function carregarQuiz(id) {
+            $.get(API_URL, { acao: 'get_quiz_full', quiz_id: id })
+                .done(function(res) {
+                    let data = (typeof res === 'string') ? JSON.parse(res) : res;
+                    
+                    if(data.status === 'sucesso') {
+                        quizData = data.quiz;
+                        perguntas = data.perguntas;
+                        respostasUsuario = new Array(perguntas.length).fill(null);
+
+                        $('#quiz-titulo').text(quizData.titulo);
+                        $('#quiz-desc').text(quizData.descricao || "Simulado");
+
+                        if(perguntas.length === 0) {
+                            $('#loading').html('<p>Sem perguntas.</p><button class="btn btn-secondary" onclick="sair()">Voltar</button>');
+                        } else {
+                            renderizarNavegacao();
+                            mostrarQuestao(0);
+                            $('#loading').hide();
+                            $('#area-prova').fadeIn();
+                        }
+                    } else {
+                        alert("Erro: " + data.msg);
+                        sair();
+                    }
+                });
+        }
+
+        function salvarQuizLista() {
+            $.post(API_URL, { acao: 'salvar_quiz_lista', quiz_id: quizId }, function(res) {
+                let data = (typeof res === 'string') ? JSON.parse(res) : res;
+                alert(data.msg); // Ex: "Salvo com sucesso!"
+            });
+        }
+
+        function renderizarNavegacao() {
+            const container = $('#nav-questoes');
+            container.empty();
+            perguntas.forEach((_, index) => {
+                const btn = $(`<div class="nav-btn" onclick="mostrarQuestao(${index})">${index + 1}</div>`);
+                container.append(btn);
+            });
+        }
+
+        function mostrarQuestao(index) {
+            questaoAtual = index;
+            const p = perguntas[index];
+
+            $('#enunciado').text(`${index + 1}. ${p.enunciado}`);
+            $('#indicador-passo').text(`Questão ${index + 1} de ${perguntas.length}`);
+            
+            $('#btn-ant').prop('disabled', index === 0);
+            
+            // Botão final muda na última questão
+            if(index === perguntas.length - 1) {
+                $('#btn-prox').html('Revisar e Finalizar <i class="bi bi-check2-circle"></i>');
+                $('#btn-prox').removeClass('btn-primary').addClass('btn-success');
+                $('#btn-prox').attr('onclick', 'finalizarProva()');
+            } else {
+                $('#btn-prox').html('Próxima <i class="bi bi-arrow-right"></i>');
+                $('#btn-prox').removeClass('btn-success').addClass('btn-primary');
+                $('#btn-prox').attr('onclick', 'navegar(1)');
+            }
+
+            $('.nav-btn').removeClass('active');
+            $(`.nav-btn:eq(${index})`).addClass('active');
+
+            const lista = $('#lista-alternativas');
+            lista.empty();
+
+            p.alternativas.forEach(alt => {
+                const selecionada = respostasUsuario[index] == alt.id ? 'selecionada' : '';
+                const checked = respostasUsuario[index] == alt.id ? 'checked' : '';
+
+                const html = `
+                <label class="alternativa ${selecionada}" onclick="selecionarAlternativa(${index}, ${alt.id}, this)">
+                    <input type="radio" name="q_${index}" ${checked}>
+                    <span>${alt.texto}</span>
+                </label>`;
+                lista.append(html);
+            });
+        }
+
+        function selecionarAlternativa(indexQuestao, idAlternativa, elementoDiv) {
+            respostasUsuario[indexQuestao] = idAlternativa;
+            $('.alternativa').removeClass('selecionada');
+            $(elementoDiv).addClass('selecionada');
+            $(elementoDiv).find('input').prop('checked', true);
+            $(`.nav-btn:eq(${indexQuestao})`).addClass('respondida');
+        }
+
+        function navegar(direcao) {
+            const novoIndex = questaoAtual + direcao;
+            if(novoIndex >= 0 && novoIndex < perguntas.length) mostrarQuestao(novoIndex);
+        }
+
+        function finalizarProva() {
+            const emBranco = respostasUsuario.filter(r => r === null).length;
+            if(emBranco > 0 && !confirm(`Ainda há ${emBranco} questões em branco. Deseja finalizar?`)) return;
+
+            $('#area-prova').hide();
+            
+            let acertos = 0;
+            const containerRes = $('#lista-correcao');
+            containerRes.empty();
+
+            perguntas.forEach((p, index) => {
+                const respId = respostasUsuario[index];
+                const altCorretaObj = p.alternativas.find(a => a.e_correta == 1);
+                const altUsuarioObj = p.alternativas.find(a => a.id == respId);
+
+                const acertou = respId == altCorretaObj.id;
+                if(acertou) acertos++;
+
+                let statusHtml = acertou 
+                    ? `<span class="badge-res badge-certo">Correto</span>` 
+                    : `<span class="badge-res badge-errado">Errado</span>`;
+                
+                let feedbackHtml = acertou 
+                    ? `<div class="mt-2 text-muted small">Resposta: <b class="text-success">${altCorretaObj.texto}</b></div>`
+                    : `<div class="mt-2 text-muted small">
+                        <div>Sua resposta: <b class="text-danger">${altUsuarioObj ? altUsuarioObj.texto : 'Em branco'}</b></div>
+                        <div>Gabarito: <b class="text-success">${altCorretaObj.texto}</b></div>
+                       </div>`;
+
+                containerRes.append(`
+                <div class="resultado-card ${acertou ? 'acertou' : 'errou'}">
+                    <div class="d-flex justify-content-between">
+                        <strong>Questão ${index + 1}</strong>
+                        ${statusHtml}
+                    </div>
+                    <p class="mb-1 mt-1">${p.enunciado}</p>
+                    ${feedbackHtml}
+                </div>`);
+            });
+
+            const pct = Math.round((acertos / perguntas.length) * 100);
+            $('#nota-final').text(pct + '%').css('color', pct >= 70 ? '#059669' : '#ef4444');
+            $('#resumo-texto').text(`Você acertou ${acertos} de ${perguntas.length} questões.`);
+            $('#area-resultado').fadeIn();
+        }
+
+        function gerarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFont("helvetica");
+            
+            doc.setFontSize(18);
+            doc.text(quizData.titulo, 10, 15);
+            doc.setFontSize(10);
+            doc.setTextColor(100);
+            doc.text("Gerado pelo Mind UFU", 10, 22);
+            doc.setTextColor(0);
+
+            let y = 35;
+            const margemEsq = 10;
+            const larguraTexto = 180;
+
+            perguntas.forEach((p, index) => {
+                if (y > 270) { doc.addPage(); y = 20; }
+
+                doc.setFontSize(12);
+                doc.setFont("helvetica", "bold");
+                const enunciadoLinhas = doc.splitTextToSize(`${index + 1}. ${p.enunciado}`, larguraTexto);
+                doc.text(enunciadoLinhas, margemEsq, y);
+                y += (enunciadoLinhas.length * 6) + 4;
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(11);
+                
+                p.alternativas.forEach((alt, iAlt) => {
+                    const letra = String.fromCharCode(65 + iAlt);
+                    const textoAlt = doc.splitTextToSize(`( ) ${alt.texto}`, larguraTexto);
+                    
+                    if (y > 280) { doc.addPage(); y = 20; }
+                    
+                    doc.text(`${letra}) ${textoAlt[0]}`, margemEsq + 5, y);
+                    if(textoAlt.length > 1) {
+                         doc.text(textoAlt.slice(1), margemEsq + 12, y + 5);
+                         y += (textoAlt.length * 5);
+                    } else { y += 6; }
+                });
+                y += 8;
+            });
+
+            doc.addPage();
+            doc.setFontSize(16);
+            doc.setFont("helvetica", "bold");
+            doc.text("Gabarito Oficial", 10, 20);
+
+            let yGab = 35;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "normal");
+
+            perguntas.forEach((p, index) => {
+                const altCorretaIndex = p.alternativas.findIndex(a => a.e_correta == 1);
+                const letraCorreta = String.fromCharCode(65 + altCorretaIndex);
+                doc.text(`Questão ${index + 1}: ${letraCorreta}`, 10, yGab);
+                yGab += 7;
+            });
+
+            doc.save(`Quiz_${quizData.titulo}.pdf`);
+        }
+
+        function sair() {
+            if(document.referrer.includes('ver_comunidade')) history.back();
+            else window.location.href = 'comunidades.html';
+        }
+    </script>
+</body>
+</html>
