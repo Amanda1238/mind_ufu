@@ -44,13 +44,6 @@
             border-radius: 8px;
             border: 1px solid #d1d5db;
             font-size: 15px;
-            transition: all 0.2s ease;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: #2563eb;
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
         }
 
         button {
@@ -64,13 +57,10 @@
             border: none;
             border-radius: 10px;
             cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
         }
 
         button:hover {
             background: #1d4ed8;
-            transform: translateY(-1px);
         }
 
         .links {
@@ -81,10 +71,6 @@
             font-size: 14px;
             color: #2563eb;
             text-decoration: none;
-        }
-
-        .links a:hover {
-            text-decoration: underline;
         }
 
         .footer {
@@ -100,11 +86,11 @@
         <div class="logo">🧠</div>
         <h1>Criar Conta</h1>
 
-        <form onsubmit="event.preventDefault(); alert('Cadastro realizado com sucesso!'); window.location.href='index.html';">
-            <input type="text" placeholder="Nickname" required>
-            <input type="email" placeholder="E-mail" required>
-            <input type="password" placeholder="Senha" required>
-            <input type="password" placeholder="Confirmar senha" required>
+        <form method="POST" action="php/criar_usuario.php">
+            <input type="text" name="nome" placeholder="Nickname" required>
+            <input type="email" name="email" placeholder="E-mail" required>
+            <input type="password" name="senha" placeholder="Senha" required>
+            <input type="password" name="confirmar_senha" placeholder="Confirmar senha" required>
 
             <button type="submit">Finalizar Cadastro</button>
         </form>
@@ -117,4 +103,3 @@
     </div>
 </body>
 </html>
-
